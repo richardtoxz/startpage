@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minha Startpage</title>
+    <title>ToXz</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -77,7 +77,6 @@
                 </div>
             </div>
 
-            <!-- Add Bookmark Button -->
             <div class="add-bookmark-container">
                 <div class="bookmark-item add-bookmark" id="add-bookmark-btn">
                     <div class="bookmark-content">
@@ -88,7 +87,6 @@
                 </div>
             </div>
 
-            <!-- Main Bookmarks Grid -->
             <div class="bookmarks-container">
                 <div class="bookmark-item">
                     <div class="bookmark-content">
@@ -181,13 +179,41 @@
     <script>
         const BRAZIL_TIMEZONE = 'America/Sao_Paulo';
 
+        const SEARCH_ENGINES = {
+            duckduckgo: { name: 'DuckDuckGo', mode: 'direct', buildUrl: q => `https://duckduckgo.com/?q=${q}` },
+            perplexity: { name: 'Perplexity', mode: 'direct', buildUrl: q => `https://www.perplexity.ai/search?q=${q}` },
+            chatgpt: {
+                name: 'ChatGPT',
+                mode: 'direct',
+                buildUrl: q => `https://chatgpt.com/?q=${q}`
+            },
+            claude: {
+                name: 'Claude',
+                mode: 'clipboard',
+                baseUrl: 'https://claude.ai/',
+                message: 'Claude não aceita query direta por URL. O prompt foi copiado. Cole (Ctrl+V) em uma nova conversa.'
+            }
+        };
+
+        const PREFIX_SHORTCUTS = [
+            { re: /^(g)\s+/i, handler: q => `https://www.google.com/search?q=${encodeURIComponent(q.replace(/^(g)\s+/i,''))}` },
+            { re: /^(yt)\s+/i, handler: q => `https://www.youtube.com/results?search_query=${encodeURIComponent(q.replace(/^(yt)\s+/i,''))}` },
+            { re: /^(r)\s+([^\s]+)/i, handler: q => { const sub = q.match(/^(r)\s+([^\s]+)/i)[2]; return `https://www.reddit.com/r/${encodeURIComponent(sub)}`;} },
+            { re: /^(gh)\s+([^\s]+)/i, handler: q => { const repo = q.match(/^(gh)\s+([^\s]+)/i)[2]; return `https://github.com/${repo}`;} },
+            { re: /^(w)\s+/i, handler: q => `https://pt.wikipedia.org/wiki/${encodeURIComponent(q.replace(/^(w)\s+/i,'').trim().replace(/\s+/g,'_'))}` },
+        ];
+
+        const LOCAL_STORAGE_KEY = 'customBookmarksV1';
+        const COLOR_PALETTE = ['#848282','#9a9797','#6e6c6c','#b0adad','#4d4b4b','#5f5d5d'];
+
         async function fetchSaoPauloTime() {
             try {
-                const response = await fetch(`http://worldtimeapi.org/api/timezone/${BRAZIL_TIMEZONE}`);
+                const response = await fetch(`https://worldtimeapi.org/api/timezone/${BRAZIL_TIMEZONE}`, { cache: 'no-store' });
+                if (!response.ok) throw new Error('HTTP ' + response.status);
                 const data = await response.json();
                 return data;
             } catch (error) {
-                console.error('Erro ao buscar horário:', error);
+                console.warn('Falha ao buscar horário remoto, usando horário local:', error.message);
                 return null;
             }
         }
@@ -196,191 +222,267 @@
             if (!timeObj) {
                 const now = new Date();
                 document.getElementById('time').textContent = now.toLocaleTimeString('pt-BR');
-                document.getElementById('date').textContent = now.toLocaleDateString('pt-BR', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
+                document.getElementById('date').textContent = now.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
                 return;
             }
-
-            const timeFormatter = new Intl.DateTimeFormat('pt-BR', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: false,
-                timeZone: BRAZIL_TIMEZONE
-            });
+            const timeFormatter = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: BRAZIL_TIMEZONE });
             document.getElementById('time').textContent = timeFormatter.format(timeObj);
-
-            const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                timeZone: BRAZIL_TIMEZONE
-            });
+            const dateFormatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: BRAZIL_TIMEZONE });
             document.getElementById('date').textContent = dateFormatter.format(timeObj);
         }
 
         async function initializeClock() {
             let currentTimeData = await fetchSaoPauloTime();
             let baseTime = currentTimeData ? new Date(currentTimeData.datetime) : new Date();
-
             updateDateTime(baseTime);
-
-            setInterval(() => {
-                baseTime.setSeconds(baseTime.getSeconds() + 1);
-                updateDateTime(baseTime);
-            }, 1000);
-
-            setInterval(async () => {
-                const timeData = await fetchSaoPauloTime();
-                if (timeData) {
-                    baseTime = new Date(timeData.datetime);
-                }
-            }, 5 * 60 * 1000);
+            setInterval(() => { baseTime.setSeconds(baseTime.getSeconds() + 1); updateDateTime(baseTime); }, 1000);
+            setInterval(async () => { const t = await fetchSaoPauloTime(); if (t) baseTime = new Date(t.datetime); }, 5 * 60 * 1000);
         }
 
-        function performSearch(searchEngine, query) {
-            const encodedQuery = encodeURIComponent(query);
-            let searchUrl;
-
-            switch (searchEngine) {
-                case 'duckduckgo':
-                    searchUrl = `https://duckduckgo.com/?q=${encodedQuery}`;
-                    break;
-                case 'chatgpt':
-                    searchUrl = `https://chat.openai.com/chat?q=${encodedQuery}`;
-                    break;
-                case 'perplexity':
-                    searchUrl = `https://www.perplexity.ai/search?q=${encodedQuery}`;
-                    break;
-                case 'claude':
-                    searchUrl = `https://claude.ai/chat?q=${encodedQuery}`;
-                    break;
-                default:
-                    searchUrl = `https://duckduckgo.com/?q=${encodedQuery}`;
+        function resolveShortcut(query) {
+            for (const p of PREFIX_SHORTCUTS) {
+                if (p.re.test(query)) {
+                    try { return p.handler(query); } catch { return null; }
+                }
             }
+            return null;
+        }
 
-            window.open(searchUrl, '_blank');
+        async function performSearch(engineKey, rawQuery) {
+            const query = rawQuery.trim();
+            if (!query) return;
+
+            const shortcutUrl = resolveShortcut(query);
+            if (shortcutUrl) { window.open(shortcutUrl, '_blank'); return; }
+
+            const encoded = encodeURIComponent(query);
+            const engine = SEARCH_ENGINES[engineKey] || SEARCH_ENGINES.duckduckgo;
+
+            if (engine.mode === 'direct') {
+                const url = engine.buildUrl(encoded);
+                window.open(url, '_blank');
+            } else if (engine.mode === 'clipboard') {
+                try { await navigator.clipboard.writeText(query); } catch (e) { console.warn('Clipboard falhou', e); }
+                window.open(engine.baseUrl, '_blank');
+                alert(engine.message + '\n\nPrompt copiado:\n' + query);
+            }
+        }
+
+        const defaultBookmarks = [
+            { name: 'Github', url: 'https://github.com' },
+            { name: 'Hack news', url: 'https://news.ycombinator.com' },
+            { name: 'Instagram', url: 'https://instagram.com' },
+            { name: 'Reddit', url: 'https://reddit.com' },
+            { name: 'X', url: 'https://x.com' },
+            { name: 'Youtube', url: 'https://youtube.com' }
+        ];
+
+        function loadCustomBookmarks() {
+            try { return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]'); } catch { return []; }
+        }
+        function saveCustomBookmarks(list) { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list)); }
+
+        function createBookmarkElement(bm, isCustom = false) {
+            const div = document.createElement('div');
+            div.className = 'bookmark-item';
+            div.innerHTML = `<div class="bookmark-content"><div class="bookmark-icon-bg"></div><div class="bookmark-text"></div><div class="bookmark-icon"></div></div>`;
+            const content = div.querySelector('.bookmark-content');
+            if (bm.color) content.style.backgroundColor = bm.color;
+            div.querySelector('.bookmark-text').textContent = bm.name;
+            div.style.cursor = 'pointer';
+            div.addEventListener('click', e => { if (e.button === 0) window.open(bm.url, '_blank'); });
+            const iconContainer = div.querySelector('.bookmark-icon');
+            if (isCustom) {
+                const fav = getFaviconUrl(bm.url);
+                if (fav) iconContainer.innerHTML = `<img src="${fav}" alt="" class="bm-favicon" />`;
+            }
+            if (isCustom) {
+                div.title = 'Clique para abrir. Botão direito para remover.';
+                div.addEventListener('contextmenu', e => {
+                    e.preventDefault();
+                    if (confirm(`Remover bookmark "${bm.name}"?`)) {
+
+                        const list = loadCustomBookmarks().filter(x => !(x.url === bm.url && x.name === bm.name));
+                        saveCustomBookmarks(list);
+                        div.remove();
+                    }
+                });
+            }
+            return div;
+        }
+
+        function renderCustomBookmarks(container) {
+            const customs = loadCustomBookmarks();
+            customs.forEach(b => container.appendChild(createBookmarkElement(b, true)));
+        }
+
+        function addNewBookmark(name, url, color) {
+            if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+            const list = loadCustomBookmarks();
+            list.push({ name, url, color });
+            saveCustomBookmarks(list);
+            const container = document.querySelector('.bookmarks-container');
+            container.appendChild(createBookmarkElement({ name, url, color }, true));
+        }
+
+        function getFaviconUrl(rawUrl) {
+            try { const u = new URL(rawUrl); return `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`; } catch { return null; }
+        }
+
+        function buildAddBookmarkModal() {
+            let overlay = document.getElementById('add-bm-overlay');
+            if (overlay) return overlay;
+            overlay = document.createElement('div');
+            overlay.id = 'add-bm-overlay';
+            overlay.className = 'modal-overlay hidden';
+            overlay.innerHTML = `
+                <div class="modal" role="dialog" aria-modal="true" aria-labelledby="add-bm-title">
+                    <div class="modal-header">
+                        <h3 id="add-bm-title">Novo Bookmark</h3>
+                        <button type="button" class="modal-close" id="add-bm-close" aria-label="Fechar">×</button>
+                    </div>
+                    <form id="add-bm-form" class="modal-form">
+                        <label class="modal-field">Nome
+                            <input type="text" id="bm-name" required maxlength="60" autocomplete="off" />
+                        </label>
+                        <label class="modal-field">URL
+                            <input type="url" id="bm-url" required placeholder="https://exemplo.com" autocomplete="off" />
+                        </label>
+                        <div class="modal-field">
+                            <span>Cor</span>
+                            <div class="color-palette" id="bm-colors"></div>
+                        </div>
+                        <div class="preview-row">
+                            <span class="preview-label">Pré-visualização:</span>
+                            <div class="bookmark-item preview-item"><div class="bookmark-content" id="bm-preview"><div class="bookmark-icon-bg"></div><div class="bookmark-text" id="bm-preview-text">Exemplo</div><div class="bookmark-icon" id="bm-preview-icon"></div></div></div>
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn secondary" id="bm-cancel">Cancelar</button>
+                            <button type="submit" class="btn primary">Salvar</button>
+                        </div>
+                    </form>
+                </div>`;
+            document.body.appendChild(overlay);
+
+            const palette = overlay.querySelector('#bm-colors');
+            COLOR_PALETTE.forEach((c,i) => {
+                const sw = document.createElement('button');
+                sw.type = 'button';
+                sw.className = 'color-swatch';
+                sw.style.setProperty('--swatch-color', c);
+                sw.setAttribute('data-color', c);
+                if (i===0) sw.classList.add('selected');
+                sw.addEventListener('click', () => {
+                    palette.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+                    sw.classList.add('selected');
+                    updatePreview();
+                });
+                palette.appendChild(sw);
+            });
+
+            function updatePreview() {
+                const name = document.getElementById('bm-name').value.trim() || 'Exemplo';
+                const url = document.getElementById('bm-url').value.trim();
+                const color = palette.querySelector('.color-swatch.selected')?.getAttribute('data-color');
+                const preview = document.getElementById('bm-preview');
+                const txt = document.getElementById('bm-preview-text');
+                const icon = document.getElementById('bm-preview-icon');
+                preview.style.backgroundColor = color || '';
+                txt.textContent = name;
+                icon.innerHTML = '';
+                if (url) {
+                    const fav = getFaviconUrl(url.startsWith('http')?url:'https://'+url);
+                    if (fav) icon.innerHTML = `<img src="${fav}" class="bm-favicon" alt="" />`;
+                }
+            }
+            overlay.addEventListener('input', e => { if (e.target.matches('#bm-name,#bm-url')) updatePreview(); });
+
+            function close() {
+                overlay.classList.add('hidden');
+                document.body.classList.remove('no-scroll');
+            }
+            overlay.querySelector('#add-bm-close').addEventListener('click', close);
+            overlay.querySelector('#bm-cancel').addEventListener('click', close);
+            overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+            document.addEventListener('keydown', e => { if (!overlay.classList.contains('hidden') && e.key==='Escape') close(); });
+
+            overlay.querySelector('#add-bm-form').addEventListener('submit', e => {
+                e.preventDefault();
+                const name = document.getElementById('bm-name').value.trim();
+                let url = document.getElementById('bm-url').value.trim();
+                if (!name || !url) return;
+                if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+                const color = palette.querySelector('.color-swatch.selected')?.getAttribute('data-color');
+                addNewBookmark(name, url, color);
+                close();
+                e.target.reset();
+                palette.querySelectorAll('.color-swatch').forEach((s,i)=> s.classList.toggle('selected', i===0));
+                updatePreview();
+            });
+
+            updatePreview();
+            return overlay;
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             initializeClock();
 
-            // Search functionality
             const searchForm = document.getElementById('search-form');
             const searchInput = document.getElementById('search-input');
             let currentSearchEngine = 'duckduckgo';
 
             searchForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                const query = searchInput.value.trim();
-                if (query) {
-                    performSearch(currentSearchEngine, query);
-                    searchInput.value = ''; // Clear the input after search
-                }
+                const query = searchInput.value;
+                if (query.trim()) performSearch(currentSearchEngine, query);
+                searchInput.value = '';
             });
-
-            // Focus on search input when page loads
             searchInput.focus();
 
-            // Search Engine Menu functionality
             const searchEngineToggle = document.getElementById('search-engine-toggle');
             const searchEngineMenu = document.getElementById('search-engine-menu');
             const searchEngineOptions = document.querySelectorAll('.search-engine-option');
-
-            // Toggle menu on click
-            searchEngineToggle.addEventListener('click', (e) => {
-                e.stopPropagation();
-                searchEngineMenu.classList.toggle('active');
-                searchEngineToggle.classList.toggle('active');
-            });
-
-            // Handle search engine selection
+            searchEngineToggle.addEventListener('click', (e) => { e.stopPropagation(); searchEngineMenu.classList.toggle('active'); searchEngineToggle.classList.toggle('active'); });
             searchEngineOptions.forEach(option => {
-                option.addEventListener('click', (e) => {
+                option.addEventListener('click', e => {
                     e.stopPropagation();
                     const engine = option.getAttribute('data-engine');
                     currentSearchEngine = engine;
-                    
-                    // Update the main button icon
                     const mainIcon = searchEngineToggle.querySelector('.search-engine-icon');
                     const selectedIcon = option.querySelector('.engine-icon').innerHTML;
                     mainIcon.innerHTML = selectedIcon;
-                    
-                    // Close menu
                     searchEngineMenu.classList.remove('active');
                     searchEngineToggle.classList.remove('active');
-                    
-                    // Focus back on search input
+                    searchInput.setAttribute('placeholder', `Buscar (${SEARCH_ENGINES[engine].name}) ou use atalhos: g, yt, r, gh, w...`);
                     searchInput.focus();
                 });
             });
+            document.addEventListener('click', (e) => { if (!searchEngineToggle.contains(e.target) && !searchEngineMenu.contains(e.target)) { searchEngineMenu.classList.remove('active'); searchEngineToggle.classList.remove('active'); } });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { searchEngineMenu.classList.remove('active'); searchEngineToggle.classList.remove('active'); searchInput.focus(); } });
 
-            // Close menu when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!searchEngineToggle.contains(e.target) && !searchEngineMenu.contains(e.target)) {
-                    searchEngineMenu.classList.remove('active');
-                    searchEngineToggle.classList.remove('active');
+            searchInput.addEventListener('keydown', e => {
+                if (e.key === 'Enter' && /^(g|yt|r|gh|w)\s*$/i.test(searchInput.value)) {
+                    e.preventDefault();
                 }
             });
 
-            // Close menu on escape key
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    searchEngineMenu.classList.remove('active');
-                    searchEngineToggle.classList.remove('active');
-                    searchInput.focus();
-                }
-            });
-
-            // Add Bookmark functionality
-            const addBookmarkBtn = document.getElementById('add-bookmark-btn');
-            addBookmarkBtn.addEventListener('click', () => {
-                const name = prompt('Nome do bookmark:');
-                if (name) {
-                    const url = prompt('URL do bookmark:');
-                    if (url) {
-                        addNewBookmark(name, url);
-                    }
-                }
-            });
-
-            // Bookmark functionality
-            const mainBookmarkItems = document.querySelectorAll('.bookmarks-container .bookmark-item');
-            const bookmarkUrls = [
-                'https://github.com',
-                'https://news.ycombinator.com',
-                'https://instagram.com',
-                'https://reddit.com',
-                'https://x.com',
-                'https://youtube.com'
-            ];
-
-            mainBookmarkItems.forEach((item, index) => {
-                item.addEventListener('click', () => {
-                    if (bookmarkUrls[index]) {
-                        window.open(bookmarkUrls[index], '_blank');
-                    }
-                });
-
+            const existing = document.querySelectorAll('.bookmarks-container .bookmark-item');
+            existing.forEach((item, idx) => {
+                const bm = defaultBookmarks[idx];
+                if (!bm) return;
                 item.style.cursor = 'pointer';
+                item.addEventListener('click', () => window.open(bm.url, '_blank'));
             });
 
-            function addNewBookmark(name, url) {
-                if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                    url = 'https://' + url;
-                }
-                
-                window.open(url, '_blank');
-                
-                alert(`Bookmark "${name}" seria adicionado para ${url}\n\n(Funcionalidade completa seria implementada com localStorage)`);
-            }
+            renderCustomBookmarks(document.querySelector('.bookmarks-container'));
+            const addBookmarkBtn = document.getElementById('add-bookmark-btn');
+            const overlay = buildAddBookmarkModal();
+            addBookmarkBtn.addEventListener('click', () => {
+                overlay.classList.remove('hidden');
+                document.body.classList.add('no-scroll');
+                overlay.querySelector('#bm-name').focus();
+            });
         });
     </script>
 </body>
-
 </html>

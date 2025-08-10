@@ -39,7 +39,6 @@ body {
     position: relative;
 }
 
-/* Clock Styling */
 .clock-container {
     position: absolute;
     width: 242px;
@@ -64,12 +63,10 @@ body {
 #date {
     font-size: 1rem;
     color: #555;
-    text-transform: capitalize;
     text-align: center;
     margin-top: 5px;
 }
 
-/* Search Bar */
 .search-bar {
     position: absolute;
     width: 584px;
@@ -111,7 +108,6 @@ body {
     outline: none;
 }
 
-/* Search Engine Selector */
 .search-engine-selector {
     position: absolute;
     width: 44px;
@@ -147,7 +143,6 @@ body {
     justify-content: center;
 }
 
-/* Search Engine Menu */
 .search-engine-menu {
     position: absolute;
     bottom: 60px;
@@ -214,7 +209,6 @@ body {
     white-space: nowrap;
 }
 
-/* Animation for menu items */
 .search-engine-option {
     opacity: 0;
     transform: translateY(10px);
@@ -233,13 +227,11 @@ body {
     }
 }
 
-/* Active state for search engine button */
 .search-engine-button.active {
     background-color: #bbb;
     transform: scale(1.05);
 }
 
-/* Bookmarks Container */
 .bookmarks-container {
     position: absolute;
     top: 562px;
@@ -252,7 +244,6 @@ body {
     justify-items: center;
 }
 
-/* Add Bookmark Button - Positioned above the main bookmarks */
 .add-bookmark-container {
     position: absolute;
     top: 492px;
@@ -262,7 +253,6 @@ body {
     justify-content: center;
 }
 
-/* Individual Bookmark Items */
 .bookmark-item {
     width: 152px;
     height: 35px;
@@ -330,7 +320,6 @@ body {
     fill: white;
 }
 
-/* Special styling for Add button */
 .bookmark-item:first-child .bookmark-plus {
     position: absolute;
     width: 28px;
@@ -350,7 +339,41 @@ body {
     left: 12px;
 }
 
-/* Responsive adjustments */
+.modal-overlay { position: fixed; inset:0; background: rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:2000; backdrop-filter: blur(4px); }
+.modal-overlay.hidden { display:none; }
+.modal { width: 420px; max-width:90vw; background:#f5f5f5; border-radius:18px; padding:20px 22px 24px; box-shadow:0 10px 40px -5px rgba(0,0,0,.35); animation: modalIn .25s ease; font-family: var(--main-font); }
+@keyframes modalIn { from { opacity:0; transform: translateY(12px) scale(.96);} to { opacity:1; transform: translateY(0) scale(1);} }
+.modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.modal-header h3 { font-size:18px; color:#222; font-weight:600; }
+.modal-close { background:none; border:none; font-size:24px; line-height:1; cursor:pointer; color:#444; padding:4px 6px; border-radius:8px; }
+.modal-close:hover { background:#e2e2e2; }
+.modal-form { display:flex; flex-direction:column; gap:14px; }
+.modal-field { display:flex; flex-direction:column; gap:6px; font-size:13px; color:#333; }
+.modal-field input { padding:10px 12px; border:1px solid #bbb; border-radius:10px; background:#fff; font-family: var(--main-font); font-size:14px; color:#222; outline:none; transition:.18s border-color, .18s box-shadow; }
+.modal-field input:focus { border-color:#666; box-shadow:0 0 0 2px rgba(0,0,0,.1); }
+.color-palette { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
+.color-swatch { --swatch-color:#ccc; width:34px; height:34px; border-radius:10px; border:2px solid transparent; background: var(--swatch-color); cursor:pointer; position:relative; transition:.18s transform, .18s box-shadow; }
+.color-swatch.selected { box-shadow:0 0 0 3px #fff, 0 0 0 5px var(--swatch-color); }
+.color-swatch:active { transform:scale(.92); }
+.preview-row { display:flex; align-items:center; gap:10px; }
+.preview-label { font-size:12px; opacity:.7; }
+.preview-item { transform:scale(.9); pointer-events:none; }
+.modal-actions { display:flex; justify-content:flex-end; gap:12px; margin-top:4px; }
+.btn { padding:10px 18px; font-size:14px; border-radius:10px; cursor:pointer; border:none; font-family: var(--main-font); transition:.2s background, .2s transform; }
+.btn.primary { background:#4d4b4b; color:#fff; }
+.btn.primary:hover { background:#3c3a3a; }
+.btn.secondary { background:#c9c9c9; color:#222; }
+.btn.secondary:hover { background:#b8b8b8; }
+.btn:active { transform:translateY(1px); }
+.no-scroll { overflow:hidden; }
+.bm-favicon { width:18px; height:18px; object-fit:contain; }
+
+.bookmark-icon img.bm-favicon { width:18px; height:18px; display:block; }
+
+#injection-helper { font-family: var(--main-font); }
+#injection-helper a { color:#222; }
+#injection-helper a:hover { text-decoration:none; }
+
 @media (max-width: 1280px) {
     .frame {
         width: 100vw;
