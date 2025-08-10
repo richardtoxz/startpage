@@ -5,7 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ToXz</title>
-    <link rel="stylesheet" href="style.css">
+    <!-- cache bust -->
+    <link rel="stylesheet" href="style.css?v=3">
 </head>
 
 <body>
@@ -318,6 +319,7 @@
 
         function addNewBookmark(name, url, color) {
             if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+           
             const list = loadCustomBookmarks();
             list.push({ name, url, color });
             saveCustomBookmarks(list);
@@ -423,6 +425,13 @@
             updatePreview();
             return overlay;
         }
+        function fixOverlayParent() {
+            const overlays = document.querySelectorAll('#add-bm-overlay');
+            if (overlays.length > 1) overlays.forEach((o,i)=>{ if(i>0) o.remove(); });
+            const ov = overlays[0];
+            if (ov && ov.parentElement !== document.body) document.body.appendChild(ov);
+            if (ov && !ov.classList.contains('modal-overlay')) ov.classList.add('modal-overlay');
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             initializeClock();
@@ -477,12 +486,14 @@
             renderCustomBookmarks(document.querySelector('.bookmarks-container'));
             const addBookmarkBtn = document.getElementById('add-bookmark-btn');
             const overlay = buildAddBookmarkModal();
+            fixOverlayParent();
             addBookmarkBtn.addEventListener('click', () => {
                 overlay.classList.remove('hidden');
                 document.body.classList.add('no-scroll');
                 overlay.querySelector('#bm-name').focus();
             });
         });
+        window.addEventListener('load', fixOverlayParent);
     </script>
 </body>
 </html>
